@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="ae015d05-d2ae-403b-9ef5-9d7e340a5ef2" name="skpose">
+        <fileTransfer rootFolder="/data0/wwang/skpose" accessType="SFTP" host="cluj.disi.unitn.it" port="22" sshConfigId="86ec30cb-b5fa-48d8-ba8d-399ed3a481e3" sshConfig="wwang@cluj.disi.unitn.it:22 password">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>
