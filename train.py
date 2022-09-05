@@ -3,7 +3,6 @@ import shutil
 
 import cv2
 import torch
-os.environ['CUDA_VISIBLE_DEVICES'] ='0'
 from torch import optim
 from torch_geometric.loader import DataLoader
 from tensorboardX import SummaryWriter
@@ -57,7 +56,7 @@ def main():
     part_aug_scale = ((0.5, 3), (0.7, 1), (0.5, 1.5))
     train_set = MultiDataset(AMASS_PATH, MIXAMO_SIMPLIFY_PATH, RIGNET_PATH, smpl, part_aug_scale=part_aug_scale,
                              part_augmentation=(False, True, False), prob=(0.2, 0.6, 0.2),
-                             single_part=True, simplify=False, new_rignet=False)
+                             single_part=True, simplify=True, new_rignet=True)
     train_loader = DataLoader(train_set, batch_size=bs,
                               shuffle=True, pin_memory=False, drop_last=True,
                               num_workers=num_workers)
@@ -65,18 +64,18 @@ def main():
     train_set2 = MultiDataset(AMASS_PATH, MIXAMO_SIMPLIFY_PATH, RIGNET_PATH, smpl, single_part=True,
                               part_aug_scale=part_aug_scale,
                               part_augmentation=(False, True, False), prob=(0.3, 0.4, 0.3),
-                              preload=train_set.database(), simplify=False, new_rignet=False)
+                              preload=train_set.database(), simplify=True, new_rignet=True)
     train_loader2 = DataLoader(train_set2, batch_size=bs,
                                shuffle=True, pin_memory=False, drop_last=True,
                                num_workers=num_workers)
 
-    # test_mixamo_set = MixamoValidationDataset(MIXAMO_SIMPLIFY_PATH)
-    # test_mixamo_loader = DataLoader(test_mixamo_set, batch_size=1,
-    #                                 shuffle=False, pin_memory=False, drop_last=False,
-    #                                 num_workers=num_workers)
+    test_mixamo_set = MixamoValidationDataset(MIXAMO_SIMPLIFY_PATH)
+    test_mixamo_loader = DataLoader(test_mixamo_set, batch_size=1,
+                                    shuffle=False, pin_memory=False, drop_last=False,
+                                    num_workers=num_workers)
 
 
-    test_amass_set = AmassDataset(AMASS_PATH, smpl, "train", simplify=False)
+    test_amass_set = AmassDataset(AMASS_PATH, smpl, "train", simplify=True)
     test_amass_loader = DataLoader(test_amass_set, batch_size=1,
                                    shuffle=True, pin_memory=False, drop_last=True,
                                    num_workers=num_workers)
@@ -212,7 +211,7 @@ def main():
                       sw_loss(region_score3, data3.weights, data3.batch)
             loss_sw = loss_sw * 0.03
 
-            loss_sw_sim = kl_div((region_score2+1e-6).log(), region_score2_noaug+1e-6, reduction="batchmean")
+            loss_sw_sim = kl_div((region_score2+1e-6).log(), region_score2_noaug+1e-6)
 
 
             loss = loss1 + loss2 + loss3 + loss_cross * 0.3 + loss_sw + loss_sw_sim + loss_fps + loss_arap
@@ -291,49 +290,49 @@ def main():
                                 renderer(*visualize_part(r_data.v0, r_data.triangle[0][0], hd0, region_score0,
                                                          save_path=os.path.join(save_dir, f'rignet_{i_iter}_seg.ply'))))
 
-            # for i_iter, (data1, data2) in enumerate(test_mixamo_loader):
-            #     data1.to(device)
-            #     data2.to(device)
-            #     hm0, hd0, _, region_score0 = predictor(torch.cat((data2.v0, data2.feat0), 1),
-            #                                            data=data2, verbose=True)
-            #     hm1, hd1, _, region_score1 = predictor(torch.cat((data1.v0, data1.feat0), 1),
-            #                                            data=data1, verbose=True)
-            #     trans1 = get_transformation(hm1, region_score1, data1.batch, data1.v0, data1.v1)
-            #     pose_enc_0 = encoder_shape(data1.v0, hm1, data=data1, feat=data1.feat0)
-            #     pose_enc = encoder_shape(data1.v1, hm1, data=data1, feat=data1.feat1)
-            #     shape_enc = encoder_shape(data2.v0, hm0, data=data2, feat=data2.feat0)
-            #
-            #     pred_disp = decoder(pose_enc-pose_enc_0, shape_enc, trans1)
-            #     pred_v = handle2mesh(pred_disp, hd0, region_score0, data2.batch, data2.v0)
-            #
-            #     dist = torch.mean(torch.sqrt(torch.sum((pred_v - data2.v1)**2, -1)))
-            #     loss = criterion(pred_v, data2.v1)
-            #     mixamo_loss_m.add_loss(mixamo_dist=dist, mixamo_loss=loss)
-            #
-            #     # visualization
-            #     if not no_render and i_iter < 10:
-            #         hd0 = hd0.cpu().numpy()[0]
-            #         v, f, vc = visualize_handle(data2.v1.cpu().numpy(), data2.triangle[0][0],
-            #                                     save_path=os.path.join(save_dir, f'mixamo_{i_iter}_input.ply'))
-            #         cv2.imwrite(os.path.join(save_dir, f'mixamo_{i_iter}_input.jpg'),
-            #                     renderer(v, f, vc, **render_args))
-            #
-            #         Mesh(v=data1.v1.cpu().numpy(), f=data1.triangle[0][0]).write_ply(
-            #             os.path.join(save_dir, f'mixamo_{i_iter}_pose.ply'))
-            #         cv2.imwrite(os.path.join(save_dir, f'mixamo_{i_iter}_pose.jpg'),
-            #                     renderer(data1.v1.cpu().numpy(), data1.triangle[0][0], **render_args))
-            #
-            #
-            #         v, f, vc = visualize_handle(pred_v.cpu().numpy(), data2.triangle[0][0],
-            #                                     save_path=os.path.join(save_dir, f'mixamo_{i_iter}_pred.ply'))
-            #         cv2.imwrite(os.path.join(save_dir, f'mixamo_{i_iter}_pred.jpg'),
-            #                     renderer(v, f, vc, **render_args))
-            #
-            #         cv2.imwrite(os.path.join(save_dir, f'mixamo_{i_iter}_seg.jpg'),
-            #                     renderer(*visualize_part(data2.v0, data2.triangle[0][0], hd0, region_score0,
-            #                                              save_path=os.path.join(save_dir, f'mixamo_{i_iter}_seg.ply'))))
-            #
-            # mixamo_loss_m.epoch_summary()
+            for i_iter, (data1, data2) in enumerate(test_mixamo_loader):
+                data1.to(device)
+                data2.to(device)
+                hm0, hd0, _, region_score0 = predictor(torch.cat((data2.v0, data2.feat0), 1),
+                                                       data=data2, verbose=True)
+                hm1, hd1, _, region_score1 = predictor(torch.cat((data1.v0, data1.feat0), 1),
+                                                       data=data1, verbose=True)
+                trans1 = get_transformation(hm1, region_score1, data1.batch, data1.v0, data1.v1)
+                pose_enc_0 = encoder_shape(data1.v0, hm1, data=data1, feat=data1.feat0)
+                pose_enc = encoder_shape(data1.v1, hm1, data=data1, feat=data1.feat1)
+                shape_enc = encoder_shape(data2.v0, hm0, data=data2, feat=data2.feat0)
+
+                pred_disp = decoder(pose_enc-pose_enc_0, shape_enc, trans1)
+                pred_v = handle2mesh(pred_disp, hd0, region_score0, data2.batch, data2.v0)
+
+                dist = torch.mean(torch.sqrt(torch.sum((pred_v - data2.v1)**2, -1)))
+                loss = criterion(pred_v, data2.v1)
+                mixamo_loss_m.add_loss(mixamo_dist=dist, mixamo_loss=loss)
+
+                # visualization
+                if not no_render and i_iter < 10:
+                    hd0 = hd0.cpu().numpy()[0]
+                    v, f, vc = visualize_handle(data2.v1.cpu().numpy(), data2.triangle[0][0],
+                                                save_path=os.path.join(save_dir, f'mixamo_{i_iter}_input.ply'))
+                    cv2.imwrite(os.path.join(save_dir, f'mixamo_{i_iter}_input.jpg'),
+                                renderer(v, f, vc, **render_args))
+
+                    Mesh(v=data1.v1.cpu().numpy(), f=data1.triangle[0][0]).write_ply(
+                        os.path.join(save_dir, f'mixamo_{i_iter}_pose.ply'))
+                    cv2.imwrite(os.path.join(save_dir, f'mixamo_{i_iter}_pose.jpg'),
+                                renderer(data1.v1.cpu().numpy(), data1.triangle[0][0], **render_args))
+
+
+                    v, f, vc = visualize_handle(pred_v.cpu().numpy(), data2.triangle[0][0],
+                                                save_path=os.path.join(save_dir, f'mixamo_{i_iter}_pred.ply'))
+                    cv2.imwrite(os.path.join(save_dir, f'mixamo_{i_iter}_pred.jpg'),
+                                renderer(v, f, vc, **render_args))
+
+                    cv2.imwrite(os.path.join(save_dir, f'mixamo_{i_iter}_seg.jpg'),
+                                renderer(*visualize_part(data2.v0, data2.triangle[0][0], hd0, region_score0,
+                                                         save_path=os.path.join(save_dir, f'mixamo_{i_iter}_seg.ply'))))
+
+            mixamo_loss_m.epoch_summary()
 
 
 if __name__ == '__main__':
